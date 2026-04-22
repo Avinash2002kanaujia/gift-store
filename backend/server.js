@@ -6,7 +6,6 @@ const path = require("path");
 // Security and performance middlewares
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
@@ -17,7 +16,7 @@ const app = express();
 app.use(helmet());
 
 // Sanitize user input prevent XSS attacks
-app.use(xss());
+// app.use(xss());
 
 // Sanitize user input prevent NoSQL injection
 app.use(mongoSanitize());
