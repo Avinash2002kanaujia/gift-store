@@ -48,9 +48,25 @@ function hashOtp(email, otp) {
   return crypto.createHash("sha256").update(`${normalizeEmail(email)}|${String(otp)}|${OTP_SECRET}`).digest("hex");
 }
 
+
 async function sendOtpEmail({ email, otp, name }) {
-  // For demo, just log OTP. Add real email logic as needed.
-  console.log(`OTP for ${email}: ${otp}`);
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || "";
+  await transporter.sendMail({
+    from,
+    to: email,
+    subject: "Your Gift Store verification OTP",
+    text: `Hi ${name}, your Gift Store OTP is ${otp}. It expires in ${Math.round(OTP_TTL_MS / 60000)} minutes.`,
+    html: `<p>Hi ${name},</p><p>Your Gift Store verification OTP is <strong>${otp}</strong>.</p><p>This OTP will expire in ${Math.round(OTP_TTL_MS / 60000)} minutes.</p>`
+  });
   return true;
 }
 
@@ -78,6 +94,12 @@ module.exports = async (req, res) => {
   }
   const otp = makeOtpCode();
   const otpHash = hashOtp(email, otp);
+  // Hash password before saving in payload
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(String(req.body.password || ""), salt, 64).toString("hex");
+  const passwordHash = `${salt}:${hash}`;
+  const payload = { ...req.body, passwordHash };
+  delete payload.password;
   await PendingSignupOtp.findOneAndUpdate(
     { email },
     {
@@ -85,7 +107,7 @@ module.exports = async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
       remainingAttempts: OTP_MAX_VERIFY_ATTEMPTS,
       lastSentAt: now,
-      payload: req.body
+      payload
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );

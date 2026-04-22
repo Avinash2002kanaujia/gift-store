@@ -58,8 +58,10 @@ module.exports = async (req, res) => {
     await PendingSignupOtp.updateOne({ email }, { $inc: { remainingAttempts: -1 } });
     return res.status(400).json({ error: "Invalid OTP." });
   }
-  // Create user
-  const user = await User.create(pending.payload);
+  // Create user with hashed password
+  const userPayload = { ...pending.payload };
+  if (userPayload.password) delete userPayload.password;
+  const user = await User.create(userPayload);
   await PendingSignupOtp.deleteOne({ email });
   return res.json({ ok: true, user });
 };
