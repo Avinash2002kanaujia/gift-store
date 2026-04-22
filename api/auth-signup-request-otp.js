@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const User = require('../backend/models/User');
 const crypto = require('crypto');
+const PendingSignupOtp = require('../backend/models/PendingSignupOtp');
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/giftstore";
 const OTP_SECRET = process.env.OTP_SECRET || "gift-store-dev-otp-secret";
@@ -10,7 +11,7 @@ const OTP_TTL_MS = Math.max(1, Number(process.env.OTP_TTL_MINUTES || 10)) * 60 *
 const OTP_RESEND_COOLDOWN_MS = Math.max(5, Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 30)) * 1000;
 const OTP_MAX_VERIFY_ATTEMPTS = Math.max(1, Number(process.env.OTP_MAX_VERIFY_ATTEMPTS || 5));
 
-const pendingSignupOtps = new Map();
+
 
 async function dbConnect() {
   if (mongoose.connection.readyState === 0) {
@@ -68,20 +69,26 @@ module.exports = async (req, res) => {
   if (existingUser) {
     return res.status(409).json({ error: "An account with this email already exists." });
   }
-  const now = Date.now();
-  const existingOtp = pendingSignupOtps.get(email);
+  const now = new Date();
+  // Check for existing OTP in DB
+  const existingOtp = await PendingSignupOtp.findOne({ email });
   if (existingOtp && now - existingOtp.lastSentAt < OTP_RESEND_COOLDOWN_MS) {
     const waitSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - existingOtp.lastSentAt)) / 1000);
     return res.status(429).json({ error: `Please wait ${waitSeconds}s before requesting another OTP.` });
   }
   const otp = makeOtpCode();
-  pendingSignupOtps.set(email, {
-    otpHash: hashOtp(email, otp),
-    expiresAt: now + OTP_TTL_MS,
-    remainingAttempts: OTP_MAX_VERIFY_ATTEMPTS,
-    lastSentAt: now,
-    payload: req.body
-  });
+  const otpHash = hashOtp(email, otp);
+  await PendingSignupOtp.findOneAndUpdate(
+    { email },
+    {
+      otpHash,
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      remainingAttempts: OTP_MAX_VERIFY_ATTEMPTS,
+      lastSentAt: now,
+      payload: req.body
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
   await sendOtpEmail({ email, otp, name: req.body.name });
   return res.json({ ok: true, message: "OTP sent to your email address.", expiresInSeconds: Math.round(OTP_TTL_MS / 1000) });
 };
