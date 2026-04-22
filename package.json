@@ -1,0 +1,16 @@
+{
+  "name": "gift-store",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "client": "npm --prefix frontend start",
+    "server": "npm --prefix backend run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix backend start",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
