@@ -35,7 +35,7 @@ const LOCAL_MONGO_URI = "mongodb://127.0.0.1:27017/giftstore";
 
 app.disable("x-powered-by");
 
-const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:3000";
+const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:3000 || https://gift-store-frontend.vercel.app/";
 
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json({ limit: "3mb" }));

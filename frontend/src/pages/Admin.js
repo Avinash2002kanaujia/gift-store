@@ -28,8 +28,8 @@ const persistProductsCache = (nextProducts) => {
 };
 
 function Admin() {
-  const API_BASE = "/api/products";
-  const ORDER_API = "/api/orders";
+  const API_BASE = `${process.env.REACT_APP_BACKEND_URL || ""}/api/products`;
+  const ORDER_API = `${process.env.REACT_APP_BACKEND_URL || ""}/api/orders`;
   const fileInputRef = useRef(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
